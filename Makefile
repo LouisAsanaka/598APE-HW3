@@ -1,5 +1,5 @@
 FUNC := g++
-FLAGS := -O3 -lm -g -Werror -lprofiler
+FLAGS := -O3 -march=native -lm -g -Werror -lprofiler
 
 # Enable profiling via a macro
 ifndef PROFILE

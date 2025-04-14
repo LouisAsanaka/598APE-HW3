@@ -4,6 +4,8 @@
 #include <stdlib.h>
 #include <sys/time.h>
 
+#include <vector>
+
 #ifndef PROFILE
 #define PROFILE 0
 #endif
@@ -40,17 +42,16 @@ double randomDouble() {
 
 int nplanets;
 int timesteps;
-double dt;
-double G;
+constexpr double dt = 0.001;
 
-Planet *next(Planet *planets) {
-    Planet *nextplanets = (Planet *)malloc(sizeof(Planet) * nplanets);
+void inline __attribute__((always_inline))
+next(std::vector<Planet> &planets, std::vector<Planet> &nextPlanets) {
     for (int i = 0; i < nplanets; i++) {
-        nextplanets[i].vx = planets[i].vx;
-        nextplanets[i].vy = planets[i].vy;
-        nextplanets[i].mass = planets[i].mass;
-        nextplanets[i].x = planets[i].x;
-        nextplanets[i].y = planets[i].y;
+        nextPlanets[i].vx = planets[i].vx;
+        nextPlanets[i].vy = planets[i].vy;
+        nextPlanets[i].mass = planets[i].mass;
+        nextPlanets[i].x = planets[i].x;
+        nextPlanets[i].y = planets[i].y;
     }
 
     for (int i = 0; i < nplanets; i++) {
@@ -60,14 +61,12 @@ Planet *next(Planet *planets) {
             double distSqr = dx * dx + dy * dy + 0.0001;
             double invDist = planets[i].mass * planets[j].mass / sqrt(distSqr);
             double invDist3 = invDist * invDist * invDist;
-            nextplanets[i].vx += dt * dx * invDist3;
-            nextplanets[i].vy += dt * dy * invDist3;
+            nextPlanets[i].vx += dt * dx * invDist3;
+            nextPlanets[i].vy += dt * dy * invDist3;
         }
-        nextplanets[i].x += dt * nextplanets[i].vx;
-        nextplanets[i].y += dt * nextplanets[i].vy;
+        nextPlanets[i].x += dt * nextPlanets[i].vx;
+        nextPlanets[i].y += dt * nextPlanets[i].vy;
     }
-    free(planets);
-    return nextplanets;
 }
 
 int main(int argc, const char **argv) {
@@ -77,10 +76,10 @@ int main(int argc, const char **argv) {
     }
     nplanets = atoi(argv[1]);
     timesteps = atoi(argv[2]);
-    dt = 0.001;
-    G = 6.6743;
 
-    Planet *planets = (Planet *)malloc(sizeof(Planet) * nplanets);
+    std::vector<Planet> planets(nplanets);
+    std::vector<Planet> nextPlanets(nplanets);
+
     for (int i = 0; i < nplanets; i++) {
         planets[i].mass = randomDouble() * 10 + 0.2;
         planets[i].x = (randomDouble() - 0.5) * 100 * pow(1 + nplanets, 0.4);
@@ -95,10 +94,8 @@ int main(int argc, const char **argv) {
     ProfilerStart("my_profile.prof");
 #endif
     for (int i = 0; i < timesteps; i++) {
-        planets = next(planets);
-        // printf("x=%f y=%f vx=%f vy=%f\n", planets[nplanets-1].x,
-        // planets[nplanets-1].y, planets[nplanets-1].vx,
-        // planets[nplanets-1].vy);
+        next(planets, nextPlanets);
+        planets.swap(nextPlanets);
     }
 #if PROFILE
     ProfilerStop();
