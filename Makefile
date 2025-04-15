@@ -1,5 +1,5 @@
 FUNC := g++
-FLAGS := -O3 -ffast-math -march=native -lm -g -Werror -lprofiler
+FLAGS := -O3 -ffast-math -march=native -lm -g -Werror -lprofiler -fopenmp
 
 # Enable profiling via a macro
 ifndef PROFILE
