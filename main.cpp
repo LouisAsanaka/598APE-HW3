@@ -16,9 +16,12 @@ float tdiff(struct timeval *start, struct timeval *end) {
 }
 
 struct Planet {
-    double mass;
     double x;
     double y;
+};
+
+struct PlanetProp {
+    double mass;
     double vx;
     double vy;
 };
@@ -45,27 +48,30 @@ int timesteps;
 constexpr double dt = 0.001;
 
 void inline __attribute__((always_inline))
-next(std::vector<Planet> &planets, std::vector<Planet> &nextPlanets) {
+next(std::vector<Planet> &planets, std::vector<Planet> &nextPlanets,
+     std::vector<PlanetProp> &props,
+     const std::vector<std::vector<double>> &masses6) {
     for (int i = 0; i < nplanets; i++) {
-        nextPlanets[i].vx = planets[i].vx;
-        nextPlanets[i].vy = planets[i].vy;
-        nextPlanets[i].mass = planets[i].mass;
         nextPlanets[i].x = planets[i].x;
         nextPlanets[i].y = planets[i].y;
     }
 
     for (int i = 0; i < nplanets; i++) {
-        for (int j = 0; j < nplanets; j++) {
+        for (int j = i + 1; j < nplanets; j++) {
             double dx = planets[j].x - planets[i].x;
             double dy = planets[j].y - planets[i].y;
             double distSqr = dx * dx + dy * dy + 0.0001;
-            double invDist = planets[i].mass * planets[j].mass / sqrt(distSqr);
-            double invDist3 = invDist * invDist * invDist;
-            nextPlanets[i].vx += dt * dx * invDist3;
-            nextPlanets[i].vy += dt * dy * invDist3;
+            double distSqrt = sqrt(distSqr);
+            double invDist3 = dt * masses6[i][j] / (distSqr * distSqrt);
+            double xInvDist3 = dx * invDist3;
+            double yInvDist3 = dy * invDist3;
+            props[i].vx += xInvDist3;
+            props[i].vy += yInvDist3;
+            props[j].vx -= xInvDist3;
+            props[j].vy -= yInvDist3;
         }
-        nextPlanets[i].x += dt * nextPlanets[i].vx;
-        nextPlanets[i].y += dt * nextPlanets[i].vy;
+        nextPlanets[i].x += dt * props[i].vx;
+        nextPlanets[i].y += dt * props[i].vy;
     }
 }
 
@@ -79,13 +85,23 @@ int main(int argc, const char **argv) {
 
     std::vector<Planet> planets(nplanets);
     std::vector<Planet> nextPlanets(nplanets);
+    std::vector<PlanetProp> props(nplanets);
+    std::vector<std::vector<double>> masses6(nplanets,
+                                             std::vector<double>(nplanets));
 
     for (int i = 0; i < nplanets; i++) {
-        planets[i].mass = randomDouble() * 10 + 0.2;
+        props[i].mass = randomDouble() * 10 + 0.2;
         planets[i].x = (randomDouble() - 0.5) * 100 * pow(1 + nplanets, 0.4);
         planets[i].y = (randomDouble() - 0.5) * 100 * pow(1 + nplanets, 0.4);
-        planets[i].vx = randomDouble() * 5 - 2.5;
-        planets[i].vy = randomDouble() * 5 - 2.5;
+        props[i].vx = randomDouble() * 5 - 2.5;
+        props[i].vy = randomDouble() * 5 - 2.5;
+    }
+
+    for (int i = 0; i < nplanets; i++) {
+        for (int j = 0; j < nplanets; j++) {
+            double mass2 = props[i].mass * props[j].mass;
+            masses6[i][j] = mass2 * mass2 * mass2;
+        }
     }
 
     struct timeval start, end;
@@ -94,7 +110,7 @@ int main(int argc, const char **argv) {
     ProfilerStart("my_profile.prof");
 #endif
     for (int i = 0; i < timesteps; i++) {
-        next(planets, nextPlanets);
+        next(planets, nextPlanets, props, masses6);
         planets.swap(nextPlanets);
     }
 #if PROFILE
